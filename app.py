@@ -7,6 +7,16 @@ st.write('This app calculates VRP (IV - RV) for SPY, GOLD, and YIELDS using live
 
 period = 30  # Trading days for RV calculation (approx. 1 month)
 
+# Safe function to get latest price (fixes .info issues)
+def get_latest_price(ticker_symbol):
+    try:
+        data = yf.download(ticker_symbol, period="5d", progress=False)
+        if data.empty:
+            return np.nan
+        return data['Close'].iloc[-1]
+    except Exception:
+        return np.nan
+
 # Function to calculate RV for equities/commodities (in %)
 def calculate_rv(ticker, period):
     try:
@@ -33,7 +43,7 @@ def calculate_rv_yields(ticker, period):
 
 # SPY (S&P 500)
 st.subheader('SPY (S&P 500)')
-iv_spy = yf.Ticker('^VIX').info.get('regularMarketPrice', np.nan)
+iv_spy = get_latest_price('^VIX')
 rv_spy = calculate_rv('SPY', period)
 vrp_spy = iv_spy - rv_spy if not np.isnan(iv_spy) and not np.isnan(rv_spy) else np.nan
 st.write(f'Implied Volatility (^VIX): {iv_spy:.2f}%' if not np.isnan(iv_spy) else 'Implied Volatility: Data unavailable')
@@ -42,7 +52,7 @@ st.write(f'Volatility Risk Premium (IV - RV): {vrp_spy:.2f}%' if not np.isnan(vr
 
 # GOLD
 st.subheader('GOLD')
-iv_gold = yf.Ticker('^GVZ').info.get('regularMarketPrice', np.nan)
+iv_gold = get_latest_price('^GVZ')
 rv_gold = calculate_rv('GC=F', period)  # Gold futures
 vrp_gold = iv_gold - rv_gold if not np.isnan(iv_gold) and not np.isnan(rv_gold) else np.nan
 st.write(f'Implied Volatility (^GVZ): {iv_gold:.2f}%' if not np.isnan(iv_gold) else 'Implied Volatility: Data unavailable')
@@ -51,7 +61,7 @@ st.write(f'Volatility Risk Premium (IV - RV): {vrp_gold:.2f}%' if not np.isnan(v
 
 # YIELDS (10Y Treasury)
 st.subheader('YIELDS (10Y Treasury)')
-iv_yields = yf.Ticker('^MOVE').info.get('regularMarketPrice', np.nan)
+iv_yields = get_latest_price('^MOVE')
 rv_yields = calculate_rv_yields('^TNX', period)
 vrp_yields = iv_yields - rv_yields if not np.isnan(iv_yields) and not np.isnan(rv_yields) else np.nan
 st.write(f'Implied Volatility (^MOVE): {iv_yields:.2f} bp' if not np.isnan(iv_yields) else 'Implied Volatility: Data unavailable')
