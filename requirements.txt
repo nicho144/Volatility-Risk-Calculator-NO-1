@@ -1,1 +1,7 @@
-pip install requests pandas numpy yfinance matplotlib
+pandas
+numpy
+yfinance
+requests
+streamlit
+matplotlib
+plotly
