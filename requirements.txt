@@ -1,5 +1,1 @@
-streamlit
-yfinance
-pandas
-numpy
-requests
+pip install requests pandas numpy yfinance matplotlib
