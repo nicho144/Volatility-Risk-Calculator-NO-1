@@ -6,60 +6,64 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import plotly.express as px
 
+st.set_page_config(page_title="VRP Dashboard", layout="wide")
 st.title("Volatility Risk Premium (VRP) Dashboard")
 
-# --- FRED API settings ---
+# --- 1) Settings ---
 fred_series = {"SPY": "VIXCLS", "GLD": "GVZ", "^TNX": "TYNVOLIndex"}
-fred_base_url = "https://api.stlouisfed.org/fred/series/observations"
-api_key = "DEMO"  # For public/demo access
+api_key = "DEMO"  # replace with your FRED key for frequent use
+window_rv = 21  # rolling window for realized vol
 
-# --- Fetch IV from FRED ---
-iv_latest = {}
+# --- 2) Function to fetch IV from FRED ---
+def fetch_fred_iv(series_id):
+    base_url = "https://api.stlouisfed.org/fred/series/observations"
+    try:
+        r = requests.get(base_url, params={
+            "series_id": series_id,
+            "api_key": api_key,
+            "file_type": "json"
+        }).json()
+        if "observations" not in r:
+            st.warning(f"No observations returned for {series_id}")
+            return None
+        df = pd.DataFrame(r["observations"])
+        df["date"] = pd.to_datetime(df["date"])
+        df["value"] = pd.to_numeric(df["value"], errors="coerce")
+        df = df.dropna()
+        return df.set_index("date")["value"]
+    except Exception as e:
+        st.error(f"Error fetching {series_id}: {e}")
+        return None
+
+# --- 3) Fetch latest IV ---
+iv_data = {}
 for ticker, series_id in fred_series.items():
-    r = requests.get(fred_base_url, params={
-        "series_id": series_id,
-        "api_key": api_key,
-        "file_type": "json"
-    }).json()
-    df_iv = pd.DataFrame(r["observations"])
-    df_iv["date"] = pd.to_datetime(df_iv["date"])
-    df_iv["value"] = pd.to_numeric(df_iv["value"], errors="coerce")
-    iv_latest[ticker] = df_iv.set_index("date")["value"].dropna().iloc[-1]
+    iv_series = fetch_fred_iv(series_id)
+    if iv_series is not None and not iv_series.empty:
+        iv_data[ticker] = iv_series
+    else:
+        iv_data[ticker] = pd.Series(dtype=float)
 
+latest_iv = {t: series.iloc[-1] if not series.empty else np.nan for t, series in iv_data.items()}
 st.subheader("Latest Implied Volatility (IV)")
-st.write(iv_latest)
+st.write(latest_iv)
 
-# --- Fetch RV from Yahoo Finance ---
+# --- 4) Fetch RV from Yahoo Finance ---
 end_date = datetime.now()
 start_date = end_date - timedelta(days=365)
 tickers = ["SPY", "GLD", "^TNX"]
 data = yf.download(tickers, start=start_date, end=end_date)["Close"]
+
 rets = np.log(data / data.shift(1))
-rv = rets.rolling(21).std() * np.sqrt(252)
-rv_latest = rv.iloc[-1].to_dict()
+rv = rets.rolling(window_rv).std() * np.sqrt(252)
+latest_rv = rv.iloc[-1].to_dict()
+st.subheader(f"Latest Realized Volatility (RV, {window_rv}-day, annualized)")
+st.write(latest_rv)
 
-st.subheader("Latest Realized Volatility (RV, 21-day, annualized)")
-st.write(rv_latest)
-
-# --- Compute VRP ---
-vrp = {t: iv_latest[t] - rv_latest[t] for t in tickers}
+# --- 5) Compute VRP ---
+vrp = {t: latest_iv.get(t, np.nan) - latest_rv.get(t, np.nan) for t in tickers}
 st.subheader("Volatility Risk Premium (VRP = IV - RV)")
 st.write(vrp)
 
-# --- Plot VRP over last 6 months ---
-vrp_over_time = pd.DataFrame(index=rv.index)
-for t, series_id in fred_series.items():
-    r = requests.get(fred_base_url, params={
-        "series_id": series_id,
-        "api_key": api_key,
-        "file_type": "json"
-    }).json()
-    df_iv = pd.DataFrame(r["observations"])
-    df_iv["date"] = pd.to_datetime(df_iv["date"])
-    df_iv["value"] = pd.to_numeric(df_iv["value"], errors="coerce")
-    df_iv.set_index("date", inplace=True)
-    iv_series = df_iv["value"].reindex(rv.index).ffill()
-    vrp_over_time[t] = iv_series - rv[t]
-
-fig = px.line(vrp_over_time, title="VRP Over Time")
-st.plotly_chart(fig)
+# --- 6) Plot VRP over time (6 months) ---
+vrp_over_ti
