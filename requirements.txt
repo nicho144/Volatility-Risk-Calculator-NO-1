@@ -1,1 +1,3 @@
-pip install yfinance pandas streamlit
+yfinance
+pandas
+streamlit
