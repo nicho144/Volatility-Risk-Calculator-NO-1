@@ -1,7 +1,14 @@
-pandas
-numpy
-yfinance
-requests
-streamlit
-matplotlib
-plotly
+# Core Yahoo Finance data fetching (with rate-limit fixes)
+yfinance>=0.2.40
+curl_cffi>=0.7.0          # Required for browser impersonation to avoid YFRateLimitError
+
+# Data processing & analysis
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization (IV smile/skew plots)
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Optional but useful for scheduling/scanning later
+schedule>=1.2.0           # If you want to run the scanner automatically
